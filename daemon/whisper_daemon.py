@@ -28,7 +28,7 @@ def main():
 
     final_model_size = f'{model_size}.en'
     model = whisper.load_model(final_model_size)
-    print(f"Model {final_model_size} loaded")
+    print(f"Model whisper {final_model_size} loaded")
 
     while True:
         server.listen()
