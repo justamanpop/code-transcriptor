@@ -16,11 +16,21 @@ pub extern "C" fn transcribe_audio(audio_file_path_ptr: *const libc::c_char, soc
         CStr::from_ptr(audio_file_path_ptr).to_str().unwrap()
     };
 
-    let mut stream = UnixStream::connect(socket_file_path_str).unwrap();
+    let transcript = get_transcript(audio_file_path_str, socket_file_path_str);
+    let cleaned_transcript = clean_transcript(transcript);
+    CString::new(cleaned_transcript).unwrap().into_raw()
+}
 
-    stream.write_all(audio_file_path_str.as_bytes());
+fn get_transcript(audio_file_path: &str, socket_file_path: &str)-> String {
+    let mut stream = UnixStream::connect(socket_file_path).unwrap();
+
+    stream.write_all(audio_file_path.as_bytes());
 
     let mut transcript = String::new();
     stream.read_to_string(&mut transcript).unwrap();
-    CString::new(transcript).unwrap().into_raw()
+    return transcript
+}
+
+fn clean_transcript(transcript: String) -> String {
+    transcript
 }
