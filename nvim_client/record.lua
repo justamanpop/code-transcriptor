@@ -1,4 +1,4 @@
-local cmd = {
+local record_cmd = {
 	"arecord",
 	"-f",
 	"S16_LE",
@@ -9,13 +9,25 @@ local cmd = {
 	"/tmp/nvim_recording.wav",
 }
 
-local clock = os.clock
-local function sleep(n) -- seconds
-	local t0 = clock()
-	while clock() - t0 <= n do
+local recording_job = nil
+
+local function start_recording()
+	recording_job = vim.fn.jobstart(record_cmd)
+end
+
+local function stop_recording()
+	vim.fn.jobstop(recording_job)
+end
+
+local function toggle_recording()
+	if recording_job == nil then
+		start_recording()
+		print("recording started")
+	else
+		stop_recording()
+		print("recording stopped")
 	end
 end
 
-local recording_job = vim.fn.jobstart(cmd)
-sleep(4)
-vim.fn.jobstop(recording_job)
+vim.api.nvim_create_user_command("VoiceToggle", toggle_recording, {})
+vim.keymap.set("n", "<leader>vt", toggle_recording, { desc = "Voice: Toggle record" })
