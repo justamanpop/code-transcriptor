@@ -19,15 +19,19 @@ local function stop_recording()
 	vim.fn.jobstop(recording_job)
 end
 
-local function toggle_recording()
+local function toggle_recording_and_append()
 	if recording_job == nil then
 		start_recording()
 		print("recording started")
 	else
 		stop_recording()
 		print("recording stopped")
+		print("generating transcript")
+
+		print("appending transcript")
+		print("transcript appended")
 	end
 end
 
-vim.api.nvim_create_user_command("VoiceToggle", toggle_recording, {})
-vim.keymap.set("n", "<leader>vt", toggle_recording, { desc = "Voice: Toggle record" })
+vim.api.nvim_create_user_command("VoiceToggle", toggle_recording_and_append, {})
+vim.keymap.set("n", "<leader>vt", toggle_recording_and_append, { desc = "Voice: Toggle record" })

@@ -3,3 +3,6 @@ name = "transcript_processor"
 
 [lib]
 crate-type= ["cdylib"]
+
+[dependencies]
+libc = "0.2.178"

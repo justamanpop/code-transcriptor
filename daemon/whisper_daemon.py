@@ -35,6 +35,7 @@ def main():
         conn, _ = server.accept()
 
         audio_file_to_transcribe = conn.recv(1024).decode('utf-8').strip()
+        print(f"transcribing file {audio_file_to_transcribe}")
         result = model.transcribe(audio_file_to_transcribe)
         print(result["text"])
 
