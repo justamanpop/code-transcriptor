@@ -1,0 +1,5 @@
+[package]
+name = "transcript_processor"
+
+[lib]
+crate-type= ["cdylib"]
