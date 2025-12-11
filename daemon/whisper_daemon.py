@@ -35,9 +35,12 @@ def main():
         conn, _ = server.accept()
 
         audio_file_to_transcribe = conn.recv(1024).decode('utf-8').strip()
-        print(f"transcribing file {audio_file_to_transcribe}")
-        result = model.transcribe(audio_file_to_transcribe)
-        print(result["text"])
+
+        try:
+            result = model.transcribe(audio_file_to_transcribe)
+            print(result["text"])
+        except Exception as e:
+            print("error transcribing file", e)
 
 if __name__ == "__main__":
     atexit.register(delete_socket_file)
