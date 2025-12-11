@@ -30,17 +30,20 @@ def main():
     model = whisper.load_model(final_model_size)
     print(f"Model whisper {final_model_size} loaded")
 
+    server.listen()
+
     while True:
-        server.listen()
         conn, _ = server.accept()
 
         audio_file_to_transcribe = conn.recv(1024).decode('utf-8').strip()
 
         try:
             result = model.transcribe(audio_file_to_transcribe)
-            print(result["text"])
         except Exception as e:
             print("error transcribing file", e)
+
+        conn.sendall(result["text"].encode("utf-8"))
+        conn.close()
 
 if __name__ == "__main__":
     atexit.register(delete_socket_file)

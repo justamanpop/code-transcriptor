@@ -1,6 +1,7 @@
 extern crate libc;
 
-use std::io::Write;
+use std::string::String;
+use std::io::{Read, Write};
 use std::os::unix::net::{UnixStream};
 use std::ffi::{CStr, CString};
 use libc::c_char;
@@ -16,6 +17,10 @@ pub extern "C" fn transcribe_audio(audio_file_path_ptr: *const libc::c_char, soc
     };
 
     let mut stream = UnixStream::connect(socket_file_path_str).unwrap();
+
     stream.write_all(audio_file_path_str.as_bytes());
-    CString::new(socket_file_path_str).unwrap().into_raw()
+
+    let mut transcript = String::new();
+    stream.read_to_string(&mut transcript).unwrap();
+    CString::new(transcript).unwrap().into_raw()
 }
