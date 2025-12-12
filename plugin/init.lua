@@ -1,6 +1,7 @@
-local ffi = require("ffi")
+local uv = vim.uv or vim.loop
 
 function get_transcription()
+	local ffi = require("ffi")
 	ffi.cdef([[
     char* transcribe_audio(const char* audio_file_path, const char* socket_file_path);
 ]])
@@ -8,7 +9,6 @@ function get_transcription()
 	local transcript = lib.transcribe_audio("/tmp/nvim_recording.wav", "/tmp/whisper_daemon.sock")
 	return ffi.string(transcript)
 end
-
 local record_cmd = {
 	"arecord",
 	"-f",
@@ -37,18 +37,15 @@ local function toggle_recording_and_append()
 		print("recording started")
 	else
 		stop_recording()
-		print("recording stopped")
-
-		print("generating transcript")
-		local transcript = get_transcription()
-		print("appending transcript")
-		print(transcript)
-		vim.schedule(function()
-			local line_count = vim.api.nvim_buf_line_count(0)
-			local lines = vim.split(transcript, "\n", { plain = true })
-			vim.api.nvim_buf_set_lines(0, line_count, line_count, false, lines)
-			vim.notify("✅ Transcription appended!", vim.log.levels.INFO)
-		end)
+		print("recording stopped, generating transcription")
+		uv.new_work(get_transcription, function(transcript)
+			print("generated transcript, writing to file")
+			vim.schedule(function()
+				local line_count = vim.api.nvim_buf_line_count(0)
+				local lines = vim.split(transcript, "\n", { plain = true })
+				vim.api.nvim_buf_set_lines(0, line_count, line_count, false, lines)
+			end)
+		end):queue()
 	end
 end
 
