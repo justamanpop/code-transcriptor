@@ -8,9 +8,7 @@ function get_transcription()
 ]])
 	local lib = ffi.load("/home/anishs/development/voice_to_code/rust_client/target/release/libtranscript_processor.so")
 	local response = lib.transcribe_audio("/tmp/nvim_recording.wav", "/tmp/whisper_daemon.sock")
-	print("response is ", response)
-	print("type of response is ", type(response))
-	local transcript = ffi.string(transcript)
+	local transcript = ffi.string(response)
 	lib.free_string(response)
 	return transcript
 end
