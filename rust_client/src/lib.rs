@@ -34,3 +34,14 @@ fn get_transcript(audio_file_path: &str, socket_file_path: &str)-> String {
 fn clean_transcript(transcript: String) -> String {
     transcript
 }
+
+#[no_mangle]
+pub extern "C" fn free_string(s: *mut c_char) {
+    if s.is_null() { return }
+    
+    // SAFETY: This is safe because `s` was originally created by CString::into_raw()
+    // The memory is now returned to the heap.
+    unsafe {
+        let _ = CString::from_raw(s); 
+    }
+}
