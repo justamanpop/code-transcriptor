@@ -38,7 +38,7 @@ local function toggle_recording_and_append()
 	else
 		stop_recording()
 		print("recording stopped, generating transcription")
-		uv.new_work(get_transcription, function()
+		uv.new_work(get_transcription, function(transcript)
 			print("generated transcript, writing to file")
 			vim.schedule(function()
 				local line_count = vim.api.nvim_buf_line_count(0)
