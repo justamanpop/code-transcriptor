@@ -7,7 +7,7 @@ use std::ffi::{CStr, CString};
 use libc::c_char;
 
 #[no_mangle]
-pub extern "C" fn transcribe_audio(audio_file_path_ptr: *const libc::c_char, socket_file_path_ptr: *const libc::c_char) -> *mut c_char {
+pub extern "C" fn transcribe_audio(audio_file_path_ptr: *const libc::c_char, socket_file_path_ptr: *const libc::c_char, filetype_ptr: *const libc::c_char) -> *mut c_char {
     let socket_file_path_str = unsafe {
         CStr::from_ptr(socket_file_path_ptr).to_str().unwrap()
     };

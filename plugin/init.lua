@@ -3,11 +3,11 @@ local uv = vim.uv or vim.loop
 function get_transcription()
 	local ffi = require("ffi")
 	ffi.cdef([[
-    char* transcribe_audio(const char* audio_file_path, const char* socket_file_path);
+    char* transcribe_audio(const char* audio_file_path, const char* socket_file_path, const char* filetype);
     void free_string(char* s);
 ]])
 	local lib = ffi.load("/home/anishs/development/voice_to_code/rust_client/target/release/libtranscript_processor.so")
-	local response = lib.transcribe_audio("/tmp/nvim_recording.wav", "/tmp/whisper_daemon.sock")
+	local response = lib.transcribe_audio("/tmp/nvim_recording.wav", "/tmp/whisper_daemon.sock", "lua")
 	local transcript = ffi.string(response)
 	lib.free_string(response)
 	return transcript
