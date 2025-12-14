@@ -35,8 +35,14 @@ fn get_transcript(audio_file_path: &str, socket_file_path: &str)-> String {
     return transcript
 }
 
-fn clean_transcript(transcript: String, filetype: &str) -> String {
-    transcript
+fn clean_transcript(mut transcript: String, filetype: &str) -> String {
+    match filetype {
+        "lua" => {
+            transcript.push_str(" lua");
+            transcript
+        },
+        _ => transcript
+    }
 }
 
 #[no_mangle]
