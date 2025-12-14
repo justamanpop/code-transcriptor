@@ -5,7 +5,6 @@ use std::io::{Read, Write};
 use std::os::unix::net::{UnixStream};
 use std::ffi::{CStr, CString};
 use libc::c_char;
-use std::fs::File;
 
 #[no_mangle]
 pub extern "C" fn transcribe_audio(audio_file_path_ptr: *const libc::c_char, socket_file_path_ptr: *const libc::c_char, filetype_ptr: *const libc::c_char) -> *mut c_char {
@@ -20,8 +19,6 @@ pub extern "C" fn transcribe_audio(audio_file_path_ptr: *const libc::c_char, soc
     let filetype_str = unsafe {
         CStr::from_ptr(filetype_ptr).to_str().unwrap()
     };
-
-    write_string_to_file(format!("socket path {}, audio file path {}, filetype {}", socket_file_path_str, audio_file_path_str, filetype_str));
 
     let transcript = get_transcript(audio_file_path_str, socket_file_path_str);
     let cleaned_transcript = clean_transcript(transcript, filetype_str);
@@ -54,9 +51,4 @@ pub extern "C" fn free_string(s: *mut c_char) {
         if s.is_null() { return; }
         CString::from_raw(s); 
     }
-}
-
-fn write_string_to_file(s: String) {
-    let mut file = File::create("/home/anishs/development/voice_to_code/foo.txt").unwrap();
-    file.write_all(b"Hello, world!");
 }
