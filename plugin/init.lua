@@ -1,13 +1,13 @@
 local uv = vim.uv or vim.loop
 
-function get_transcription()
+function get_transcription(filetype)
 	local ffi = require("ffi")
 	ffi.cdef([[
     char* transcribe_audio(const char* audio_file_path, const char* socket_file_path, const char* filetype);
     void free_string(char* s);
 ]])
 	local lib = ffi.load("/home/anishs/development/voice_to_code/rust_client/target/release/libtranscript_processor.so")
-	local response = lib.transcribe_audio("/tmp/nvim_recording.wav", "/tmp/whisper_daemon.sock", vim.bo.filetype)
+	local response = lib.transcribe_audio("/tmp/nvim_recording.wav", "/tmp/whisper_daemon.sock", filetype)
 	local transcript = ffi.string(response)
 	lib.free_string(response)
 	return transcript
@@ -41,7 +41,9 @@ local function toggle_recording_and_append()
 	else
 		stop_recording()
 		print("recording stopped, generating transcription")
-		uv.new_work(get_transcription, function(transcript)
+		uv.new_work(function(filetype)
+			return get_transcription(filetype)
+		end, function(transcript)
 			print("generated transcript, writing to file")
 			vim.schedule(function()
 				local line_count = vim.api.nvim_buf_line_count(0)
