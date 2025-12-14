@@ -16,8 +16,12 @@ pub extern "C" fn transcribe_audio(audio_file_path_ptr: *const libc::c_char, soc
         CStr::from_ptr(audio_file_path_ptr).to_str().unwrap()
     };
 
+    let filetype_str = unsafe {
+        CStr::from_ptr(filetype_ptr).to_str().unwrap()
+    };
+
     let transcript = get_transcript(audio_file_path_str, socket_file_path_str);
-    let cleaned_transcript = clean_transcript(transcript);
+    let cleaned_transcript = clean_transcript(transcript, filetype_str);
     CString::new(cleaned_transcript).unwrap().into_raw()
 }
 
@@ -31,7 +35,7 @@ fn get_transcript(audio_file_path: &str, socket_file_path: &str)-> String {
     return transcript
 }
 
-fn clean_transcript(transcript: String) -> String {
+fn clean_transcript(transcript: String, filetype: &str) -> String {
     transcript
 }
 
