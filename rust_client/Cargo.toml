@@ -6,3 +6,4 @@ crate-type= ["cdylib"]
 
 [dependencies]
 libc = "0.2.178"
+regex = "1.12.2"
