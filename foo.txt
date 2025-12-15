@@ -1,1 +1,1 @@
-socket path /tmp/whisper_daemon.sock, audio file path /tmp/nvim_recording.wav, filetype json
+socket path /tmp/whisper_daemon.sock, audio file path /tmp/nvim_recording.wav, filetype go
