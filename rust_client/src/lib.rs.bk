@@ -73,8 +73,8 @@ fn clean_go_transcript(transcript: String) -> String {
     re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
         Cow::Borrowed("=")
     } else {
-        //should never happen
-        Cow::Borrowed(transcript.as_str())
+            //should never happen
+            ""
     }).to_string()
 }
 
