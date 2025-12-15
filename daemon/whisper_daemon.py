@@ -35,7 +35,10 @@ def main():
     while True:
         conn, _ = server.accept()
 
-        audio_file_to_transcribe = conn.recv(1024).decode('utf-8').strip()
+        message = conn.recv(1024).decode('utf-8').strip()
+        print(f"message received is {message}")
+        audio_file_to_transcribe = message.split("x-x-x")[0]
+        filetype = message.split("x-x-x")[1]
 
         try:
             result = model.transcribe(audio_file_to_transcribe)

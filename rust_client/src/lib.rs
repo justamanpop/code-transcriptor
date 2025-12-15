@@ -24,14 +24,14 @@ pub extern "C" fn transcribe_audio(
 
     let filetype_str = unsafe { CStr::from_ptr(filetype_ptr).to_str().unwrap() };
 
-    append_string_to_file(format!(
+    log(format!(
         "socket path {}, audio file path {}, filetype {}",
         socket_file_path_str,
         audio_file_path_str,
         filetype_str
     ));
 
-    let transcript = get_transcript(audio_file_path_str, socket_file_path_str);
+    let transcript = get_transcript(audio_file_path_str, socket_file_path_str, filetype_str);
     let cleaned_transcript = clean_transcript(transcript, filetype_str);
 
     CString::new(cleaned_transcript).unwrap().into_raw()
@@ -47,10 +47,11 @@ pub extern "C" fn free_string(s: *mut c_char) {
     }
 }
 
-fn get_transcript(audio_file_path: &str, socket_file_path: &str) -> String {
+fn get_transcript(audio_file_path: &str, socket_file_path: &str, filetype: &str) -> String {
     let mut stream = UnixStream::connect(socket_file_path).unwrap();
 
-    stream.write_all(audio_file_path.as_bytes()).expect(
+    let message = format!("{}x-x-x{}", audio_file_path, filetype);
+    stream.write_all(message.as_bytes()).expect(
         "unable to write to UNIX socket",
     );
 
@@ -60,11 +61,14 @@ fn get_transcript(audio_file_path: &str, socket_file_path: &str) -> String {
 }
 
 fn clean_transcript(mut transcript: String, filetype: &str) -> String {
-    append_string_to_file(transcript.clone());
+    log(transcript.clone());
     transcript = strip_punctuation(transcript);
-    append_string_to_file(transcript.clone());
+    log(transcript.clone());
     match filetype {
-        "go" => clean_go_transcript(transcript),
+        "go" => {
+            transcript = lowercase_go_transcript_keywords(transcript);
+            clean_go_transcript_symbols(transcript)
+        }
         _ => transcript,
     }
 }
@@ -74,32 +78,47 @@ fn strip_punctuation(transcript: String) -> String {
     re.replace_all(&transcript, "").to_string()
 }
 
-fn clean_go_transcript(transcript: String) -> String {
-    let re = Regex::new(r"(?i)(colon equals)|(equals equals)|(equals)|(colon)|(curly)|(close curly)|(new line)").unwrap();
+fn clean_go_transcript_symbols(transcript: String) -> String {
+    let re = Regex::new(
+        r"(?i)(colon equals)|(equals equals)|(equals)|(colon)|(curly)|(close curly)|(new line)",
+    ).unwrap();
     re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
         Cow::Borrowed(":=")
     } else if caps.get(2).is_some() {
         Cow::Borrowed("==")
     } else if caps.get(3).is_some() {
         Cow::Borrowed("=")
-
     } else if caps.get(4).is_some() {
         Cow::Borrowed(":")
-
-    } else if caps.get(5).is_some() { 
-       Cow::Borrowed("{")
+    } else if caps.get(5).is_some() {
+        Cow::Borrowed("{")
     } else if caps.get(6).is_some() {
         Cow::Borrowed("}")
-    
     } else if caps.get(7).is_some() {
         Cow::Borrowed("\n")
     } else {
-        //should never happen
         Cow::Borrowed(transcript.as_str())
     }).to_string()
 }
 
-fn append_string_to_file(mut s: String) {
+fn lowercase_go_transcript_keywords(transcript: String) -> String {
+    let re = Regex::new(r"(?i)(if)|(for)|(type)|(interface)|(struct)").unwrap();
+    re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
+        Cow::Borrowed("if")
+    } else if caps.get(2).is_some() {
+        Cow::Borrowed("for")
+    } else if caps.get(3).is_some() {
+        Cow::Borrowed("type")
+    } else if caps.get(4).is_some() {
+        Cow::Borrowed("interface")
+    } else if caps.get(5).is_some() {
+        Cow::Borrowed("struct")
+    } else {
+        Cow::Borrowed(transcript.as_str())
+    }).to_string()
+}
+
+fn log(mut s: String) {
     s.push_str("\n");
     let mut file = OpenOptions::new()
         .append(true)
@@ -112,6 +131,6 @@ fn append_string_to_file(mut s: String) {
 }
 
 fn delete_file() {
-    remove_file("/home/anishs/development/voice_to_code/log.txt").expect("failed to delete log file");
+    let _ = remove_file("/home/anishs/development/voice_to_code/log.txt");
     ()
 }
