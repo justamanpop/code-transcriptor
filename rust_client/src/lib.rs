@@ -75,13 +75,24 @@ fn strip_punctuation(transcript: String) -> String {
 }
 
 fn clean_go_transcript(transcript: String) -> String {
-    let re = Regex::new(r"(colon equals)|(equals)|(colon)").unwrap();
+    let re = Regex::new(r"(?i)(colon equals)|(equals equals)|(equals)|(colon)|(curly)|(close curly)|(new line)").unwrap();
     re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
         Cow::Borrowed(":=")
     } else if caps.get(2).is_some() {
-        Cow::Borrowed("=")
+        Cow::Borrowed("==")
     } else if caps.get(3).is_some() {
+        Cow::Borrowed("=")
+
+    } else if caps.get(4).is_some() {
         Cow::Borrowed(":")
+
+    } else if caps.get(5).is_some() { 
+       Cow::Borrowed("{")
+    } else if caps.get(6).is_some() {
+        Cow::Borrowed("}")
+    
+    } else if caps.get(7).is_some() {
+        Cow::Borrowed("\n")
     } else {
         //should never happen
         Cow::Borrowed(transcript.as_str())
