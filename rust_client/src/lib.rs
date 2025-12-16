@@ -66,6 +66,7 @@ fn get_transcript(audio_file_path: &str, socket_file_path: &str, filetype: &str)
 }
 
 fn clean_transcript(mut transcript: String, filetype: &str) -> String {
+    append_string_to_file(transcript.clone());
     transcript = strip_punctuation(transcript);
     log("punctuation stripped", transcript.clone());
     match filetype {
