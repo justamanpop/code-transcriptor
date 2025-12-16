@@ -72,22 +72,35 @@ fn clean_transcript(mut transcript: String, filetype: &str) -> String {
         "go" => {
             transcript = lowercase_go_keywords(transcript);
             transcript = replace_go_special_chars(transcript);
-            log("special chars replaced", transcript.clone());
-            let transcript_lines = split_lines(transcript);
+
+            let mut transcript_lines = split_into_lines(transcript);
             log(
                 "lines with keywords lowercased and special chars replaced",
                 transcript_lines.clone(),
             );
 
+            transcript_lines = add_curly_braces(transcript_lines);
             transcript_lines.join("\n")
         }
         _ => transcript,
     }
 }
 
+fn add_curly_braces(transcript_lines: Vec<String>) -> Vec<String> {
+    transcript_lines
+        .into_iter()
+        .map(|mut line| {
+            if (line).starts_with("if ") || (line).starts_with("type ") {
+                line.push_str(" {")
+            } 
+            line
+        })
+        .collect()
+}
+
 fn strip_punctuation(transcript: String) -> String {
     let re = Regex::new(r"\p{P}").unwrap();
-    re.replace_all(&transcript, "").to_string()
+    re.replace_all(&transcript, "").trim().to_string()
 }
 
 fn lowercase_go_keywords(transcript: String) -> String {
@@ -130,7 +143,7 @@ fn replace_go_special_chars(transcript: String) -> String {
     }).to_string()
 }
 
-fn split_lines(transcript: String) -> Vec<String> {
+fn split_into_lines(transcript: String) -> Vec<String> {
     transcript.split("\n").map(str::to_string).collect()
 }
 
