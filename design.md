@@ -7,7 +7,7 @@ Then it calls the daemon with the Whisper model, pointing it to this temp wav fi
 The temp file is then deleted, and the transcription is returned over the socket by the daemon.
 
 Additionally, some cleaning of transcription output will be required, like replacing dot with ".", semi-colon with ";", and so on.
-Instead of doing it on the model itself, I will be doing this with a program, so that it's more deterministic, does not require the AI knowledge of finetuning a model or prompt engineering.
+Instead of doing it on the model itself, I will be doing this with a program, so that it's more deterministic, does not require the AI knowledge of finetuning a model. Might handle some of it with prompt engineering however, Whisper accepts an initial prompt when generating text, so some behaviour could be enforced through it.
 
 The final step is to integrate this entire flow with a text editor/IDE. The plan is to have a hotkey to start and stop recording, and then have the transcription result automatically appended to the current file when recording is stopped.
 
