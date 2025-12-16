@@ -9,6 +9,7 @@ use std::os::unix::net::UnixStream;
 use std::ffi::{CStr, CString};
 use std::fs::{OpenOptions, remove_file};
 use std::borrow::Cow;
+use std::fmt::Debug;
 
 
 #[no_mangle]
@@ -24,12 +25,15 @@ pub extern "C" fn transcribe_audio(
 
     let filetype_str = unsafe { CStr::from_ptr(filetype_ptr).to_str().unwrap() };
 
-    log(format!(
-        "socket path {}, audio file path {}, filetype {}",
-        socket_file_path_str,
-        audio_file_path_str,
-        filetype_str
-    ));
+    log(
+        "data sent over socket to python daemon",
+        format!(
+            "socket path {}, audio file path {}, filetype {}",
+            socket_file_path_str,
+            audio_file_path_str,
+            filetype_str
+        ),
+    );
 
     let transcript = get_transcript(audio_file_path_str, socket_file_path_str, filetype_str);
     let cleaned_transcript = clean_transcript(transcript, filetype_str);
@@ -57,17 +61,25 @@ fn get_transcript(audio_file_path: &str, socket_file_path: &str, filetype: &str)
 
     let mut transcript = String::new();
     stream.read_to_string(&mut transcript).unwrap();
+    log("transcript returned from daemon", transcript.clone());
     return transcript;
 }
 
 fn clean_transcript(mut transcript: String, filetype: &str) -> String {
-    log(transcript.clone());
     transcript = strip_punctuation(transcript);
-    log(transcript.clone());
+    log("punctuation stripped", transcript.clone());
     match filetype {
         "go" => {
-            transcript = lowercase_go_transcript_keywords(transcript);
-            clean_go_transcript_symbols(transcript)
+            transcript = lowercase_go_keywords(transcript);
+            transcript = replace_go_special_chars(transcript);
+            log("special chars replaced", transcript.clone());
+            let transcript_lines = split_lines(transcript);
+            log(
+                "lines with keywords lowercased and special chars replaced",
+                transcript_lines.clone(),
+            );
+
+            transcript_lines.join("\n")
         }
         _ => transcript,
     }
@@ -78,30 +90,7 @@ fn strip_punctuation(transcript: String) -> String {
     re.replace_all(&transcript, "").to_string()
 }
 
-fn clean_go_transcript_symbols(transcript: String) -> String {
-    let re = Regex::new(
-        r"(?i)(colon equals)|(equals equals)|(equals)|(colon)|(curly)|(close curly)|(new line)",
-    ).unwrap();
-    re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
-        Cow::Borrowed(":=")
-    } else if caps.get(2).is_some() {
-        Cow::Borrowed("==")
-    } else if caps.get(3).is_some() {
-        Cow::Borrowed("=")
-    } else if caps.get(4).is_some() {
-        Cow::Borrowed(":")
-    } else if caps.get(5).is_some() {
-        Cow::Borrowed("{")
-    } else if caps.get(6).is_some() {
-        Cow::Borrowed("}")
-    } else if caps.get(7).is_some() {
-        Cow::Borrowed("\n")
-    } else {
-        Cow::Borrowed(transcript.as_str())
-    }).to_string()
-}
-
-fn lowercase_go_transcript_keywords(transcript: String) -> String {
+fn lowercase_go_keywords(transcript: String) -> String {
     let re = Regex::new(r"(?i)(if)|(for)|(type)|(interface)|(struct)").unwrap();
     re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
         Cow::Borrowed("if")
@@ -118,14 +107,45 @@ fn lowercase_go_transcript_keywords(transcript: String) -> String {
     }).to_string()
 }
 
-fn log(mut s: String) {
-    s.push_str("\n");
+fn replace_go_special_chars(transcript: String) -> String {
+    let re = Regex::new(
+        r"(?i)(colon equals)|(equals equals)|(equals)|(colon)|(close brackets)|(brackets)|(newline|new line)"
+    ).unwrap();
+    re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
+        Cow::Borrowed(":=")
+    } else if caps.get(2).is_some() {
+        Cow::Borrowed("==")
+    } else if caps.get(3).is_some() {
+        Cow::Borrowed("=")
+    } else if caps.get(4).is_some() {
+        Cow::Borrowed(":")
+    } else if caps.get(5).is_some() {
+        Cow::Borrowed(")")
+    } else if caps.get(6).is_some() {
+        Cow::Borrowed("(")
+    } else if caps.get(7).is_some() {
+        Cow::Borrowed("\n")
+    } else {
+        Cow::Borrowed(transcript.as_str())
+    }).to_string()
+}
+
+fn split_lines(transcript: String) -> Vec<String> {
+    transcript.split("\n").map(str::to_string).collect()
+}
+
+
+fn log<T>(prefix: &str, data: T)
+where
+    T: Debug,
+{
+    let log_string = format!("{} {:?}\n", prefix, data);
     let mut file = OpenOptions::new()
         .append(true)
         .create(true)
         .open("/home/anishs/development/voice_to_code/log.txt")
         .unwrap();
-    file.write_all(s.as_bytes()).expect(
+    file.write_all(log_string.as_bytes()).expect(
         "could not write to log file",
     );
 }

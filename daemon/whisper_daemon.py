@@ -7,7 +7,7 @@ import whisper
 
 SOCKET_FILE_PATH = "/tmp/whisper_daemon.sock"
 PROGRAMMING_LANGUAGE_PROMPTS = {
-    "go": "the audio is talking in code of the programming language go. language key words like func should be kept as is instead of trying to match with an english word"
+    "go": "the audio is talking in code of the programming language go. Language key words like func, struct should be kept as is instead of trying to match with an english word."
 }
 
 def delete_socket_file():
@@ -48,6 +48,7 @@ def main():
             result = model.transcribe(audio_file_to_transcribe, initial_prompt=prompt)
         except Exception as e:
             print("error transcribing file", e)
+            conn.close()
             return
 
         conn.sendall(result["text"].encode("utf-8"))
