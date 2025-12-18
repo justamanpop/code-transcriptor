@@ -78,9 +78,10 @@ fn clean_transcript(mut transcript: String, filetype: &str) -> String {
     log("punctuation stripped", transcript.clone());
     match filetype {
         "go" => {
-            transcript = replace_go_special_chars(transcript);
-            transcript = add_newline_after_assignments(transcript);
-            transcript = lowercase_go_keywords(transcript);
+            transcript = go_replace_special_chars(transcript);
+            transcript = go_add_newline_after_assignments(transcript);
+            transcript = go_edge_case_replacements(transcript);
+            transcript = go_lowercase_go_keywords(transcript);
 
             let mut transcript_lines = split_into_lines(transcript);
             log(
@@ -95,11 +96,24 @@ fn clean_transcript(mut transcript: String, filetype: &str) -> String {
     }
 }
 
+fn go_edge_case_replacements(transcript: String) -> String {
+    let re = Regex::new(concat!(
+        r"(?i)",
+        r#"(?P<dq_space>"space")"#,
+    )).unwrap();
+    re.replace_all(&transcript, |caps: &Captures| {
+        if caps.name("dq_space").is_some() {
+            return Cow::Borrowed("\" \"");
+        }
+        Cow::Borrowed(transcript.as_str())
+    }).to_string()
+}
+
 /// Strip all punctuation except periods, since decimal numbers are output with those.
 ///
 /// To identify and strip periods used as full stops, finding and removing period space.
 ///
-/// Finally, if period is the last char of the transcript, there is no space after, it won't be caught by above cases, 
+/// Finally, if period is the last char of the transcript, there is no space after, it won't be caught by above cases,
 /// so stripping it as suffix.
 fn strip_punctuation(transcript: String) -> String {
     let re = Regex::new(r"(?P<non_period_punc>[\p{P}--.])|(?P<period_space>\. )").unwrap();
@@ -107,19 +121,19 @@ fn strip_punctuation(transcript: String) -> String {
         if caps.name("period_space").is_some() {
             return Cow::Borrowed(" ");
         } else if caps.name("non_period_punc").is_some() {
-            return Cow::Borrowed("")
+            return Cow::Borrowed("");
         }
         Cow::Borrowed(transcript.as_str())
     });
     let trimmed = replaced.trim();
     trimmed
-    .strip_suffix(".")
-    .map(|s| s.to_string())
-    .unwrap_or_else(|| trimmed.to_string())
+        .strip_suffix(".")
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| trimmed.to_string())
 }
 
 /// Ensures language keywords like type, interface, if, etc. are never capitalized.
-fn lowercase_go_keywords(transcript: String) -> String {
+fn go_lowercase_go_keywords(transcript: String) -> String {
     let re = Regex::new(r"(?i)(if)|(for)|(type)|(interface)|(struct)").unwrap();
     re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
         Cow::Borrowed("if")
@@ -138,7 +152,7 @@ fn lowercase_go_keywords(transcript: String) -> String {
 
 /// Replaces words for special characters equals with their literal symbol
 /// E.g   colon with :, equals with =, etc.
-fn replace_go_special_chars(transcript: String) -> String {
+fn go_replace_special_chars(transcript: String) -> String {
     let re = Regex::new(concat!(
         r"(?i)",
         r"(?P<ce>colon equals)|",
@@ -188,8 +202,10 @@ fn replace_go_special_chars(transcript: String) -> String {
     }).to_string()
 }
 
-fn add_newline_after_assignments(transcript: String) -> String {
-    let re = Regex::new(r#"(?i)(?P<true>:= true)|(?P<false>:= false)|(?P<string>(?:".*?"\+)+".*?")"#).unwrap();
+fn go_add_newline_after_assignments(transcript: String) -> String {
+    let re = Regex::new(
+        r#"(?i)(?P<true>:= true)|(?P<false>:= false)|(?P<string>(?:".*?"\+)+".*?")"#,
+    ).unwrap();
     re.replace_all(&transcript, |caps: &Captures| format!("{}\n", &caps[0]))
         .to_string()
 }
