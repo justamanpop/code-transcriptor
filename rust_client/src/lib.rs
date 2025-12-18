@@ -51,6 +51,10 @@ pub extern "C" fn free_string(s: *mut c_char) {
     }
 }
 
+/**
+* Writes audio file path and filetype to UNIX socket that transcription daemon listens on.
+* Daemon responds with transcription on the same socket, this function reads and returns that.
+*/
 fn get_transcript(audio_file_path: &str, socket_file_path: &str, filetype: &str) -> String {
     let mut stream = UnixStream::connect(socket_file_path).unwrap();
 
@@ -65,6 +69,14 @@ fn get_transcript(audio_file_path: &str, socket_file_path: &str, filetype: &str)
     return transcript;
 }
 
+/**
+* The raw transcript is not valid code, it contains punctuation symbols, capitalizations, no braces
+* and parantheses, etc.
+*
+* This function cleans up all of that and makes output valid code. Where possible it infers where
+* curly braces, newlines or other symbols are needed and inserts them, saving the speaker from
+* having to repeatedly specify those.
+*/
 fn clean_transcript(mut transcript: String, filetype: &str) -> String {
     transcript = strip_punctuation(transcript);
     log("punctuation stripped", transcript.clone());
@@ -87,11 +99,30 @@ fn clean_transcript(mut transcript: String, filetype: &str) -> String {
     }
 }
 
+/**
+* Strip all punctuation except periods, since decimal numbers are output with those.
+*
+* To identify and strip periods used as full stops, finding and removing period space.
+*
+* Finally, if period is the last char of the transcript, there is no space after, it won't be caught by above cases, 
+* so stripping it as suffix.
+*/
 fn strip_punctuation(transcript: String) -> String {
-    let re = Regex::new(r"\p{P}").unwrap();
-    re.replace_all(&transcript, "").trim().to_string()
+    let re = Regex::new(r"([\p{P}--.])|(\. )").unwrap();
+    re.replace_all(&transcript, |caps: &Captures| {
+        if caps.get(2).is_some() {
+            return Cow::Borrowed(" ");
+        }
+        Cow::Borrowed("")
+    }).strip_suffix(".")
+        .unwrap()
+        .trim()
+        .to_string()
 }
 
+/**
+* Ensures language keywords like type, interface, if, etc. are never capitalized.
+*/
 fn lowercase_go_keywords(transcript: String) -> String {
     let re = Regex::new(r"(?i)(if)|(for)|(type)|(interface)|(struct)").unwrap();
     re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
@@ -109,9 +140,13 @@ fn lowercase_go_keywords(transcript: String) -> String {
     }).to_string()
 }
 
+/**
+* Replaces words for special characters equals with their literal symbol
+* E.g   colon with :, equals with =, etc.
+*/
 fn replace_go_special_chars(transcript: String) -> String {
     let re = Regex::new(
-        r"(?i)(colon equals)|(equals equals)|(equals)|(colon)|(close brackets)|(brackets)|(newline|new line)"
+        r"(?i)(colon equals)|(equals equals)|(equals)|(colon)|(close brackets)|(brackets)|(dot )|(newline|new line)"
     ).unwrap();
     re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
         Cow::Borrowed(":=")
@@ -134,12 +169,10 @@ fn replace_go_special_chars(transcript: String) -> String {
 
 fn add_newline_after_assignments(transcript: String) -> String {
     let re = Regex::new(
-        // r"(?i)(:= true)|(:= false)|(:= \d+)|([a-zA-Z0-9]+)|(\d+\.\d+)"
-        r"(?i)(:= true)|(:= false)"
+        r"(?i)(:= true)|(:= false)|(:= \d+\.\d+)|(:= \d+)",
     ).unwrap();
-    re.replace_all(&transcript, |caps: &Captures|
-        format!("{}\n", &caps[0])
-    ).to_string()
+    re.replace_all(&transcript, |caps: &Captures| format!("{}\n", &caps[0]))
+        .to_string()
 }
 
 fn split_into_lines(transcript: String) -> Vec<String> {
@@ -150,9 +183,9 @@ fn add_curly_braces(transcript_lines: Vec<String>) -> Vec<String> {
     transcript_lines
         .into_iter()
         .map(|mut line| {
-            if (line).starts_with("if ") || (line).starts_with("type ") {
+            if ((line).starts_with("if ") || (line).starts_with("type ")) && !(line.ends_with("{") || line.ends_with("{ ")) {
                 line.push_str(" {")
-            } 
+            }
             line
         })
         .collect()
