@@ -66,13 +66,13 @@ fn get_transcript(audio_file_path: &str, socket_file_path: &str, filetype: &str)
 }
 
 fn clean_transcript(mut transcript: String, filetype: &str) -> String {
-    append_string_to_file(transcript.clone());
     transcript = strip_punctuation(transcript);
     log("punctuation stripped", transcript.clone());
     match filetype {
         "go" => {
-            transcript = lowercase_go_keywords(transcript);
             transcript = replace_go_special_chars(transcript);
+            transcript = add_newline_after_assignments(transcript);
+            transcript = lowercase_go_keywords(transcript);
 
             let mut transcript_lines = split_into_lines(transcript);
             log(
@@ -85,18 +85,6 @@ fn clean_transcript(mut transcript: String, filetype: &str) -> String {
         }
         _ => transcript,
     }
-}
-
-fn add_curly_braces(transcript_lines: Vec<String>) -> Vec<String> {
-    transcript_lines
-        .into_iter()
-        .map(|mut line| {
-            if (line).starts_with("if ") || (line).starts_with("type ") {
-                line.push_str(" {")
-            } 
-            line
-        })
-        .collect()
 }
 
 fn strip_punctuation(transcript: String) -> String {
@@ -144,10 +132,31 @@ fn replace_go_special_chars(transcript: String) -> String {
     }).to_string()
 }
 
+fn add_newline_after_assignments(transcript: String) -> String {
+    let re = Regex::new(
+        // r"(?i)(:= true)|(:= false)|(:= \d+)|([a-zA-Z0-9]+)|(\d+\.\d+)"
+        r"(?i)(:= true)|(:= false)"
+    ).unwrap();
+    re.replace_all(&transcript, |caps: &Captures|
+        format!("{}\n", &caps[0])
+    ).to_string()
+}
+
 fn split_into_lines(transcript: String) -> Vec<String> {
     transcript.split("\n").map(str::to_string).collect()
 }
 
+fn add_curly_braces(transcript_lines: Vec<String>) -> Vec<String> {
+    transcript_lines
+        .into_iter()
+        .map(|mut line| {
+            if (line).starts_with("if ") || (line).starts_with("type ") {
+                line.push_str(" {")
+            } 
+            line
+        })
+        .collect()
+}
 
 fn log<T>(prefix: &str, data: T)
 where
