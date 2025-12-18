@@ -102,16 +102,20 @@ fn clean_transcript(mut transcript: String, filetype: &str) -> String {
 /// Finally, if period is the last char of the transcript, there is no space after, it won't be caught by above cases, 
 /// so stripping it as suffix.
 fn strip_punctuation(transcript: String) -> String {
-    let re = Regex::new(r"([\p{P}--.])|(\. )").unwrap();
-    re.replace_all(&transcript, |caps: &Captures| {
-        if caps.get(2).is_some() {
+    let re = Regex::new(r"(?P<non_period_punc>[\p{P}--.])|(?P<period_space>\. )").unwrap();
+    let replaced = re.replace_all(&transcript, |caps: &Captures| {
+        if caps.name("period_space").is_some() {
             return Cow::Borrowed(" ");
+        } else if caps.name("non_period_punc").is_some() {
+            return Cow::Borrowed("")
         }
-        Cow::Borrowed("")
-    }).strip_suffix(".")
-        .unwrap()
-        .trim()
-        .to_string()
+        Cow::Borrowed(transcript.as_str())
+    });
+    let trimmed = replaced.trim();
+    trimmed
+    .strip_suffix(".")
+    .map(|s| s.to_string())
+    .unwrap_or_else(|| trimmed.to_string())
 }
 
 /// Ensures language keywords like type, interface, if, etc. are never capitalized.
@@ -145,6 +149,7 @@ fn replace_go_special_chars(transcript: String) -> String {
         r"(?P<br>brackets)|",
         r"(?P<pl>plus)|",
         r"(?P<mi>minus)|",
+        r"(?P<dq>\s*double quotes\s*)|",
         r"(?P<nl>newline|new line)",
     )).unwrap();
     re.replace_all(&transcript, |caps: &Captures| {
@@ -172,6 +177,9 @@ fn replace_go_special_chars(transcript: String) -> String {
         if caps.name("mi").is_some() {
             return Cow::Borrowed("-");
         }
+        if caps.name("dq").is_some() {
+            return Cow::Borrowed("\"");
+        }
         if caps.name("nl").is_some() {
             return Cow::Borrowed("\n");
         }
@@ -181,7 +189,7 @@ fn replace_go_special_chars(transcript: String) -> String {
 }
 
 fn add_newline_after_assignments(transcript: String) -> String {
-    let re = Regex::new(r"(?i)(:= true)|(:= false)|(:= \d+\.\d+)|(:= \d+)").unwrap();
+    let re = Regex::new(r#"(?i)(?P<true>:= true)|(?P<false>:= false)|(?P<string>(?:".*?"\+)+".*?")"#).unwrap();
     re.replace_all(&transcript, |caps: &Captures| format!("{}\n", &caps[0]))
         .to_string()
 }
