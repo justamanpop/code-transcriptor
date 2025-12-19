@@ -5,6 +5,9 @@ use std::borrow::Cow;
 use crate::string_utils;
 use crate::utils;
 
+#[cfg(test)]
+mod tests;
+
 pub fn clean_transcript(mut transcript: String) -> String {
     transcript = lowercase_go_keywords(transcript);
     transcript = replace_special_chars(transcript);
@@ -30,24 +33,12 @@ pub fn clean_transcript(mut transcript: String) -> String {
 }
 
 /// Ensures language keywords like type, interface, if, etc. are never capitalized.
+/// TODO: make this work for all cases
 fn lowercase_go_keywords(transcript: String) -> String {
     let re = Regex::new(r"(?i)(if )|(for )|(type )|( interface)|( struct)|( true)| ( false)").unwrap();
     re.replace_all(&transcript, |caps: &Captures| {
-    caps[0].to_lowercase()
-    // if caps.get(1).is_some() {
-    //     Cow::Borrowed("if ")
-    // } else if caps.get(2).is_some() {
-    //     Cow::Borrowed("for ")
-    // } else if caps.get(3).is_some() {
-    //     Cow::Borrowed("type ")
-    // } else if caps.get(4).is_some() {
-    //     Cow::Borrowed("interface ")
-    // } else if caps.get(5).is_some() {
-    //     Cow::Borrowed("struct ")
-    // } else {
-    //     Cow::Borrowed(transcript.as_str())
-    }
-        ).to_string()
+        caps[0].to_lowercase()
+    }).to_string()
 }
 
 /// Replaces words for special characters equals with their literal symbol
@@ -109,6 +100,8 @@ fn add_newline_after_assignments(transcript: String) -> String {
          
         r"(?P<true>:= true)|",
         r"(?P<false>:= false)|",
+        //starts with :=, then the expression (?:".*?"\+) 0 or more times [it means anything inside double quotes followed by a +], then
+        // the same expression once. Meant to capture string, or string + string + string
         r#"(?P<string>:= (?:".*?"\+)*".*?")"#,
         )
     ).unwrap();
@@ -119,13 +112,18 @@ fn add_newline_after_assignments(transcript: String) -> String {
 fn edge_case_replacements(transcript: String) -> String {
     let re = Regex::new(concat!(
         r"(?i)",
-        r#"(?P<dq_space>"space")"#,
+        // r#"(?P<dq_trim>" .+ ")"#,
+        r#"(?P<dq_space>"\s.+?\s")"#,
     )).unwrap();
     re.replace_all(&transcript, |caps: &Captures| {
-        if caps.name("dq_space").is_some() {
-            return Cow::Borrowed("\" \"");
+        if let Some(m) = caps.name("dq_space") {
+            let full_match = m.as_str();
+            let trimmed_inner = full_match
+                .trim_matches('"')
+                .trim();
+            return format!("\"{}\"", trimmed_inner);
         }
-        Cow::Borrowed(transcript.as_str())
+        caps[0].to_string()
     }).to_string()
 }
 
