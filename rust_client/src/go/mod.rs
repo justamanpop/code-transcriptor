@@ -102,7 +102,7 @@ fn add_newline_after_assignments(transcript: String) -> String {
         r"(?P<false>:= false)|",
         //starts with :=, then the expression (?:".*?"\+) 0 or more times [it means anything inside double quotes followed by a +], then
         // the same expression once. Meant to capture string, or string + string + string
-        r#"(?P<string>:= (?:".*?"\+)*".*?")"#,
+        r#"(?P<string>:= (?:".*?" \+ )*".*?")"#,
         )
     ).unwrap();
     re.replace_all(&transcript, |caps: &Captures| format!("{}\n", &caps[0]))

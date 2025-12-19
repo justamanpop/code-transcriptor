@@ -46,4 +46,18 @@ mod tests {
         assert_eq!(expected, actual);
         Ok(())
     }
+
+    #[test]
+    fn test_clean_transcript_handles_concatenated_string_assignment() -> Result<(), String> {
+        //arrange
+        let input = String::from("a colon equals \" hello \" plus \" world \"");
+
+        //act
+        let actual = clean_transcript(input);
+
+        //assert
+        let expected = "a := \"hello\" + \"world\"\n";
+        assert_eq!(expected, actual);
+        Ok(())
+    }
 }
