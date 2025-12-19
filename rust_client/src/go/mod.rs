@@ -102,7 +102,7 @@ fn add_newline_after_assignments(transcript: String) -> String {
         r"(?P<false>:= false)|",
         //starts with :=, then the expression (?:".*?"\+) 0 or more times [it means anything inside double quotes followed by a +], then
         // the same expression once. Meant to capture string, or string + string + string
-        r#"(?P<string>:= (?:".*?"\+)*".*?")"#,
+        r#"(?P<string>:= (?:\s*"[^"]*"\s*\+\s*)*"[^"]*")"#,
         )
     ).unwrap();
     re.replace_all(&transcript, |caps: &Captures| format!("{}\n", &caps[0]))
@@ -112,16 +112,21 @@ fn add_newline_after_assignments(transcript: String) -> String {
 fn edge_case_replacements(transcript: String) -> String {
     let re = Regex::new(concat!(
         r"(?i)",
-        // r#"(?P<dq_trim>" .+ ")"#,
-        r#"(?P<dq_space>"\s.+?\s")"#,
+        r#"(?P<dq_trailing_and_leading_space>"\s.+?\s")"#,
     )).unwrap();
     re.replace_all(&transcript, |caps: &Captures| {
-        if let Some(m) = caps.name("dq_space") {
+        if let Some(m) = caps.name("dq_trailing_and_leading_space") {
             let full_match = m.as_str();
             let trimmed_inner = full_match
                 .trim_matches('"')
                 .trim();
+            if trimmed_inner == "space" {
+                return format!("\" \"");
+            }
             return format!("\"{}\"", trimmed_inner);
+        }
+        if let Some(_) = caps.name("dq_only_space") {
+            return "\" \"".to_string()
         }
         caps[0].to_string()
     }).to_string()
