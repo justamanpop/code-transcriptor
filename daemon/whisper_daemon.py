@@ -7,7 +7,7 @@ import whisper
 
 SOCKET_FILE_PATH = "/tmp/whisper_daemon.sock"
 PROGRAMMING_LANGUAGE_PROMPTS = {
-    "go": "the audio is talking in code of the programming language go. Language key words like func, struct should be kept as is instead of trying to match with an english word."
+    "go": "the audio is talking in code of the programming language go. Language key words like func, struct and common idioms like err should be kept as is instead of trying to match with an english word."
 }
 
 def delete_socket_file():

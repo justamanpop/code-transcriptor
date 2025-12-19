@@ -1,16 +1,15 @@
 extern crate libc;
 use libc::c_char;
 extern crate regex;
-use regex::{Regex, Captures};
 
 use std::string::String;
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::ffi::{CStr, CString};
-use std::fs::{OpenOptions, remove_file};
-use std::borrow::Cow;
-use std::fmt::Debug;
 
+mod go;
+mod string_utils;
+mod utils;
 
 #[no_mangle]
 pub extern "C" fn transcribe_audio(
@@ -18,14 +17,14 @@ pub extern "C" fn transcribe_audio(
     socket_file_path_ptr: *const libc::c_char,
     filetype_ptr: *const libc::c_char,
 ) -> *mut c_char {
-    delete_file();
+    utils::delete_file();
     let socket_file_path_str = unsafe { CStr::from_ptr(socket_file_path_ptr).to_str().unwrap() };
 
     let audio_file_path_str = unsafe { CStr::from_ptr(audio_file_path_ptr).to_str().unwrap() };
 
     let filetype_str = unsafe { CStr::from_ptr(filetype_ptr).to_str().unwrap() };
 
-    log(
+    utils::log(
         "data sent over socket to python daemon",
         format!(
             "socket path {}, audio file path {}, filetype {}",
@@ -47,10 +46,13 @@ pub extern "C" fn free_string(s: *mut c_char) {
         if s.is_null() {
             return;
         }
+        #[allow(unused_must_use)]
         CString::from_raw(s);
     }
 }
 
+/// Writes audio file path and filetype to UNIX socket that transcription daemon listens on.
+/// Daemon responds with transcription on the same socket, this function reads and returns that.
 fn get_transcript(audio_file_path: &str, socket_file_path: &str, filetype: &str) -> String {
     let mut stream = UnixStream::connect(socket_file_path).unwrap();
 
@@ -61,110 +63,23 @@ fn get_transcript(audio_file_path: &str, socket_file_path: &str, filetype: &str)
 
     let mut transcript = String::new();
     stream.read_to_string(&mut transcript).unwrap();
-    log("transcript returned from daemon", transcript.clone());
+    utils::log("transcript returned from daemon", transcript.clone());
     return transcript;
 }
 
+/// The raw transcript is not valid code, it contains punctuation symbols, capitalizations, no braces
+/// and parantheses, etc.
+///
+/// This function cleans up all of that and makes output valid code. Where possible it infers where
+/// curly braces, newlines or other symbols are needed and inserts them, saving the speaker from
+/// having to repeatedly specify those.
 fn clean_transcript(mut transcript: String, filetype: &str) -> String {
-    append_string_to_file(transcript.clone());
-    transcript = strip_punctuation(transcript);
-    log("punctuation stripped", transcript.clone());
+    transcript = string_utils::strip_punctuation(transcript);
+    utils::log("punctuation stripped", transcript.clone());
     match filetype {
         "go" => {
-            transcript = lowercase_go_keywords(transcript);
-            transcript = replace_go_special_chars(transcript);
-
-            let mut transcript_lines = split_into_lines(transcript);
-            log(
-                "lines with keywords lowercased and special chars replaced",
-                transcript_lines.clone(),
-            );
-
-            transcript_lines = add_curly_braces(transcript_lines);
-            transcript_lines.join("\n")
+            go::clean_transcript(transcript)
         }
         _ => transcript,
     }
-}
-
-fn add_curly_braces(transcript_lines: Vec<String>) -> Vec<String> {
-    transcript_lines
-        .into_iter()
-        .map(|mut line| {
-            if (line).starts_with("if ") || (line).starts_with("type ") {
-                line.push_str(" {")
-            } 
-            line
-        })
-        .collect()
-}
-
-fn strip_punctuation(transcript: String) -> String {
-    let re = Regex::new(r"\p{P}").unwrap();
-    re.replace_all(&transcript, "").trim().to_string()
-}
-
-fn lowercase_go_keywords(transcript: String) -> String {
-    let re = Regex::new(r"(?i)(if)|(for)|(type)|(interface)|(struct)").unwrap();
-    re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
-        Cow::Borrowed("if")
-    } else if caps.get(2).is_some() {
-        Cow::Borrowed("for")
-    } else if caps.get(3).is_some() {
-        Cow::Borrowed("type")
-    } else if caps.get(4).is_some() {
-        Cow::Borrowed("interface")
-    } else if caps.get(5).is_some() {
-        Cow::Borrowed("struct")
-    } else {
-        Cow::Borrowed(transcript.as_str())
-    }).to_string()
-}
-
-fn replace_go_special_chars(transcript: String) -> String {
-    let re = Regex::new(
-        r"(?i)(colon equals)|(equals equals)|(equals)|(colon)|(close brackets)|(brackets)|(newline|new line)"
-    ).unwrap();
-    re.replace_all(&transcript, |caps: &Captures| if caps.get(1).is_some() {
-        Cow::Borrowed(":=")
-    } else if caps.get(2).is_some() {
-        Cow::Borrowed("==")
-    } else if caps.get(3).is_some() {
-        Cow::Borrowed("=")
-    } else if caps.get(4).is_some() {
-        Cow::Borrowed(":")
-    } else if caps.get(5).is_some() {
-        Cow::Borrowed(")")
-    } else if caps.get(6).is_some() {
-        Cow::Borrowed("(")
-    } else if caps.get(7).is_some() {
-        Cow::Borrowed("\n")
-    } else {
-        Cow::Borrowed(transcript.as_str())
-    }).to_string()
-}
-
-fn split_into_lines(transcript: String) -> Vec<String> {
-    transcript.split("\n").map(str::to_string).collect()
-}
-
-
-fn log<T>(prefix: &str, data: T)
-where
-    T: Debug,
-{
-    let log_string = format!("{} {:?}\n", prefix, data);
-    let mut file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open("/home/anishs/development/voice_to_code/log.txt")
-        .unwrap();
-    file.write_all(log_string.as_bytes()).expect(
-        "could not write to log file",
-    );
-}
-
-fn delete_file() {
-    let _ = remove_file("/home/anishs/development/voice_to_code/log.txt");
-    ()
 }
